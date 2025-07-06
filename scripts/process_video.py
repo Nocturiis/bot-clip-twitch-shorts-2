@@ -2,7 +2,7 @@ import os
 import sys
 from typing import List, Optional
 
-from moviepy.editor import VideoFileClip, CompositeVideoClip, TextClip, ImageClip, ColorClip
+from moviepy.editor import VideoFileClip, CompositeVideoClip, TextClip, ImageClip, ColorClip, concatenate_videoclips
 from moviepy.video.fx.all import crop, even_size, resize as moviepy_resize
 import numpy as np # Gardé car il pourrait être utile pour d'autres traitements futurs
 
@@ -72,6 +72,7 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
     - Coupe si elle dépasse la durée maximale.
     - Ajoute un fond personnalisé (ou noir si l'image n'est pas trouvée).
     - Ajoute le titre du clip, le nom du streamer et une icône Twitch.
+    - Ajoute une séquence de fin de 1.2s
     """
     print(f"✂️ Traitement vidéo : {input_path}")
     print(f"Durée maximale souhaitée : {max_duration_seconds} secondes.")
@@ -84,6 +85,8 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
         return None
 
     clip = None # Initialiser clip à None pour le finally
+    end_clip = None # Initialiser end_clip à None pour le finally
+
     try:
         clip = VideoFileClip(input_path)
         
@@ -107,6 +110,7 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
         assets_dir = os.path.abspath(os.path.join(script_dir, '..', 'assets'))
         twitch_icon_path = os.path.join(assets_dir, 'twitch_icon.png')
         custom_background_image_path = os.path.join(assets_dir, 'fond_short.png')
+        end_short_video_path = os.path.join(assets_dir, 'fin_de_short.mp4') # Chemin de ta vidéo de fin
         # --- FIN DE LA DÉFINITION DES CHEMINS ---
 
         all_video_elements = [] # Liste pour tous les éléments vidéo à composer
@@ -208,11 +212,43 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
             # Ce message s'affichera si twitch_icon.png n'est pas trouvé
             print("⚠️ Fichier 'twitch_icon.png' non trouvé dans le dossier 'assets'. L'icône ne sera pas ajoutée.")
 
-        final_elements = [video_with_visuals, title_clip, streamer_clip]
+        final_elements_main_video = [video_with_visuals, title_clip, streamer_clip]
         if twitch_icon_clip:
-            final_elements.append(twitch_icon_clip)
+            final_elements_main_video.append(twitch_icon_clip)
 
-        final_video = CompositeVideoClip(final_elements)
+        # Crée le clip principal AVEC le fond, le texte et potentiellement l'icône
+        composed_main_video_clip = CompositeVideoClip(final_elements_main_video).set_duration(duration)
+
+
+        # --- AJOUT DE LA SÉQUENCE DE FIN ---
+        print(f"⏳ Ajout de la séquence de fin : {os.path.basename(end_short_video_path)}")
+        if os.path.exists(end_short_video_path):
+            try:
+                end_clip = VideoFileClip(end_short_video_path)
+                
+                # Redimensionne la vidéo de fin à la taille cible (1080x1920)
+                end_clip = end_clip.resize(newsize=(target_width, target_height))
+                
+                # S'assurer que le clip de fin a la bonne durée (1.2s)
+                # Si ta vidéo est exactement de 1.2s, pas besoin de subclip.
+                # Mais c'est une bonne sécurité au cas où elle serait plus longue.
+                if end_clip.duration > 1.2:
+                    end_clip = end_clip.subclip(0, 1.2)
+                elif end_clip.duration < 1.2:
+                    print(f"⚠️ La vidéo de fin ({end_clip.duration:.2f}s) est plus courte que 1.2s. Elle ne sera pas étirée.")
+                
+                # Concaténer le clip principal traité avec le clip de fin
+                final_video = concatenate_videoclips([composed_main_video_clip, end_clip])
+                print("✅ Séquence de fin ajoutée avec succès.")
+
+            except Exception as e:
+                print(f"❌ Erreur lors du chargement ou du traitement de la vidéo de fin : {e}. Le Short sera créé sans séquence de fin.")
+                final_video = composed_main_video_clip # Utilise seulement le clip principal si la fin échoue
+        else:
+            print(f"⚠️ Fichier 'fin_de_short.mp4' non trouvé dans le dossier 'assets'. Le Short sera créé sans séquence de fin.")
+            final_video = composed_main_video_clip # Utilise seulement le clip principal si le fichier n'est pas trouvé
+        # --- FIN DE L'AJOUT DE LA SÉQUENCE DE FIN ---
+
 
         # L'écriture du fichier final, qui est la partie cruciale !
         final_video.write_videofile(output_path,
@@ -220,7 +256,7 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
                                     audio_codec="aac",
                                     temp_audiofile='temp-audio.m4a',
                                     remove_temp=True,
-                                    fps=clip.fps,
+                                    fps=clip.fps, # Utilise le FPS du clip original pour la vidéo principale
                                     logger=None)
         print(f"✅ Clip traité et sauvegardé : {output_path}")
         return output_path
@@ -235,7 +271,9 @@ def trim_video_for_short(input_path, output_path, max_duration_seconds=60, clip_
         # S'assurer que tous les clips MoviePy sont fermés pour libérer les ressources
         if 'clip' in locals() and clip is not None:
             clip.close()
-        if 'video_with_visuals' in locals() and video_with_visuals is not None:
-            video_with_visuals.close()
+        if 'composed_main_video_clip' in locals() and composed_main_video_clip is not None:
+            composed_main_video_clip.close()
+        if 'end_clip' in locals() and end_clip is not None: # Ferme le clip de fin aussi
+            end_clip.close()
         if 'final_video' in locals() and final_video is not None:
             final_video.close()
