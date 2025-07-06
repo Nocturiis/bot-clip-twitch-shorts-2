@@ -49,7 +49,7 @@ def generate_youtube_metadata(clip_data):
     today_date = datetime.now().strftime('%d %B %Y')
 
     # Titre du Short
-    title = f"{clip_title_clean} par {broadcaster_name} | Clip Twitch du Jour FR - {today_date}"
+    title = f"{clip_title_clean} par @{broadcaster_name} | The Clips Moments - {today_date}"
     # S'assurer que le titre ne dépasse pas 100 caractères pour YouTube
     if len(title) > 100:
         # Tronque au lieu de couper brutalement pour éviter un titre trop long
