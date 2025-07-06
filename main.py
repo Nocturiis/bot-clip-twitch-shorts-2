@@ -28,7 +28,7 @@ PROCESSED_CLIP_PATH = os.path.join(DATA_DIR, 'temp_processed_short.mp4')
 # Nombre de clips que le script essaiera de publier lors d'UNE SEULE EXÉCUTION du workflow.
 # Si votre GitHub Action est configurée pour s'exécuter 3 fois par jour, laissez cette valeur à 1.
 # Si votre GitHub Action s'exécute 1 fois par jour et que vous voulez 3 clips, changez cette valeur à 3.
-NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH = 1 
+NUMBER_OF_CLIPS_TO_ATTEMPT_TO_PUBLISH = 3
 # ----------------------------------------
 
 # --- Fonctions utilitaires pour l'historique ---
