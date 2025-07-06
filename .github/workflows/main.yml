@@ -3,10 +3,9 @@ name: Publish Daily YouTube Short
 on:
   workflow_dispatch: # Permet de déclencher le workflow manuellement
   schedule:
-    # Exécute le workflow tous les jours à 10h, 13h, 16h UTC
-    # (ce qui correspond à 12h, 15h, 18h en heure d'été de Bruxelles/Paris)
+    # Exécute le workflow tous les jours 1 fois dans l'après-midi
     # Ajustez selon votre fuseau horaire.
-    - cron: '0 10,13,16 * * *'
+    - cron: '0 17 * * *'
 
 jobs:
   publish-short:
